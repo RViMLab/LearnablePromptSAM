@@ -143,16 +143,6 @@ def main(args):
     elif check_path.suffix.lower()[1:] in ['mkv', 'avi', 'mp4', 'mov']:  # Video
         dataset = VidDataset(path, img_size=img_size if not patched_pred else 0, use_resize=resize_imgs)
         is_video = True
-        vid_path_out = [
-            pathlib.Path(save_path) / (check_path.stem + '_seg_pred.mkv'),
-            pathlib.Path(save_path) / (check_path.stem + '_seg_pred_overlay.mkv'),
-        ]
-        vid_out = [
-            cv2.VideoWriter(str(vid_path_out[0]), cv2.VideoWriter_fourcc(*'MJPG'),
-                            dataset.fps, (img_size, img_size), isColor=False),
-            cv2.VideoWriter(str(vid_path_out[1]), cv2.VideoWriter_fourcc(*'MJPG'),
-                            dataset.fps, (img_size, img_size), isColor=True),
-        ]
 
     else:
         raise ValueError(f"Path {path} is neither a .mkv video nor a directory")
@@ -165,6 +155,19 @@ def main(args):
     with torch.no_grad():
         for i, record in enumerate(dataloader):
             x = record['img'].to(device)
+            if is_video and i == 0:  # Video was loaded, first record, need to set up VideoWriters
+                w = x.shape[-1] if patched_pred else img_size
+                h = x.shape[-2] if patched_pred else img_size
+                vid_path_out = [
+                    pathlib.Path(save_path) / (check_path.stem + '_seg_pred.mkv'),
+                    pathlib.Path(save_path) / (check_path.stem + '_seg_pred_overlay.mkv'),
+                ]
+                vid_out = [
+                    cv2.VideoWriter(str(vid_path_out[0]), cv2.VideoWriter_fourcc(*'MJPG'),
+                                    dataset.fps, (w, h), isColor=False),
+                    cv2.VideoWriter(str(vid_path_out[1]), cv2.VideoWriter_fourcc(*'MJPG'),
+                                    dataset.fps, (w, h), isColor=True),
+                ]
             if patched_pred:
                 pred = run_model_patched(x, model, device_type, img_size, threshold=patched_threshold)
             else:
